@@ -46,14 +46,14 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create user
-	user := models.User{
+	user := &models.User{
 		Name:              registerBody.Name,
 		Email:             registerBody.Email,
 		EncryptedPassword: hashedPwd,
 	}
 
 	// Save user in db
-	createUserResult := database.DB.Save(&user)
+	createUserResult := database.DB.Save(user)
 
 	if createUserResult.Error != nil {
 		fmt.Println(createUserResult.Error)
@@ -62,22 +62,67 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create JWT with new user
+	jwtToken, err := utils.GenerateToken(*user)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		http.Error(w, "Error while generating token", http.StatusInternalServerError)
+		return
+	}
 
 	// Return JWT to client
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte(jwtToken))
+}
 
+type LoginBody struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 // Login
 func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Email and password from body
+	var loginBody LoginBody
 
-	// Check that user exists
+	// Decode body and put in user var
+	if err := json.NewDecoder(r.Body).Decode(&loginBody); err != nil {
+		fmt.Println(err.Error())
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	// Get by email
+	user, getUserErr := utils.GetUserByEmail(loginBody.Email)
+
+	if getUserErr != nil {
+		fmt.Println(getUserErr.Error())
+		http.Error(w, "Error while getting user", http.StatusInternalServerError)
+		return
+	}
 
 	// Compare password with encrypted password
+	comparePwdErr := utils.ComparePasswords(user.EncryptedPassword, loginBody.Password)
 
-	// Create JWT
+	if comparePwdErr != nil {
+		fmt.Println(comparePwdErr.Error())
+		http.Error(w, "Permission denied", http.StatusUnauthorized)
+		return
+	}
 
-	// Return JWT
+	fmt.Println((*user).ID)
 
+	// Create JWT with new user
+	jwtToken, err := utils.GenerateToken(*user)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		http.Error(w, "Error while generating token", http.StatusInternalServerError)
+		return
+	}
+
+	// Return JWT to client
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte(jwtToken))
 }

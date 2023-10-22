@@ -10,3 +10,12 @@ func DoesUserExistByEmail(email string) bool {
 	result := database.DB.Where("email = ?", email).First(&user)
 	return result.RowsAffected > 0
 }
+
+func GetUserByEmail(email string) (*models.User, error) {
+	var user models.User
+	getUserByEmailResult := database.DB.Where("email = ?", email).First(&user)
+	if getUserByEmailResult.Error != nil {
+		return nil, getUserByEmailResult.Error
+	}
+	return &user, nil
+}

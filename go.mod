@@ -6,7 +6,11 @@ require github.com/gorilla/mux v1.8.0
 
 require gorm.io/gorm v1.25.5
 
-require golang.org/x/crypto v0.14.0 // indirect
+require (
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
+	golang.org/x/crypto v0.14.0 // indirect
+)
 
 require (
 	github.com/jinzhu/gorm v1.9.16

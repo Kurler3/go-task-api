@@ -7,10 +7,15 @@ import (
 
 	"github.com/Kurler3/go-task-api/database"
 	"github.com/Kurler3/go-task-api/handlers"
+	"github.com/Kurler3/go-task-api/utils"
 	"github.com/gorilla/mux"
 )
 
 func main() {
+
+	// Load env vars
+	utils.LoadEnv()
+
 	// Initialize the database connection
 	_, err := database.InitDB()
 	if err != nil {
@@ -46,12 +51,18 @@ func main() {
 	router.HandleFunc("/tasks/{id}", handlers.DeleteTask).Methods("DELETE")
 
 	// -------------------- //
-	// User routes -------- //
+	// Auth routes -------- //
 	// -------------------- //
 
 	// Register
+	router.HandleFunc("/register", handlers.HandleRegister).Methods("POST")
 
 	// Login
+	router.HandleFunc("/login", handlers.HandleLogin).Methods("POST")
+
+	// -------------------- //
+	// User routes -------- //
+	// -------------------- //
 
 	// Get user by id
 
