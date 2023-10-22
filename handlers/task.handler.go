@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Kurler3/go-task-api/database"
 	"github.com/Kurler3/go-task-api/models"
+	"github.com/Kurler3/go-task-api/services"
 	"github.com/Kurler3/go-task-api/utils"
 )
 
@@ -14,46 +14,50 @@ import (
 func CreateTask(w http.ResponseWriter, r *http.Request) {
 
 	// Declare task var
-	var task models.Task
+	var task *models.Task
 
 	// Decode body and check against task struct. "Fill" in task var if ok
-	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(task); err != nil {
 		fmt.Println(err.Error())
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
 	// Get userID from the authenticated user
-	userID := utils.GetUserIdFromContext(r)
+	userID := services.GetUserIdFromContext(r)
 
 	task.UserID = userID
 
-	result := database.DB.Create(&task)
-	if result.Error != nil {
+	// Create task
+	task, err := services.CreateTask(task)
+
+	if err != nil {
 		http.Error(w, "Failed to create task", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(task)
+	utils.ReturnJSONToClient(
+		w,
+		*task,
+	)
 }
 
 // Get all tasks
 func GetTasks(w http.ResponseWriter, r *http.Request) {
+
 	// Get userID from the authenticated user (you will implement this part later with authentication)
-	userID := uint(1) // Example userID
+	// Get userID from the authenticated user
+	userID := services.GetUserIdFromContext(r)
 
-	var user models.User
+	tasks, err := services.GetUserTasks(userID)
 
-	findUserResult := database.DB.First(&user, userID)
-
-	if findUserResult.Error != nil {
+	if err != nil {
 		http.Error(w, "Failed to fetch tasks", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user.Tasks)
+	json.NewEncoder(w).Encode(*tasks)
 }
 
 // Get task by id
@@ -66,23 +70,27 @@ func GetTaskById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Declare task
-	var task models.Task
-
-	// Get task by id
-	getTaskResult := database.DB.First(&task, taskID)
+	// Get task
+	task, err := services.GetTaskById(taskID)
 
 	// If error
-	if getTaskResult.Error != nil {
+	if err != nil {
 		http.Error(w, "Failed to fetch task", http.StatusInternalServerError)
 		return
 	}
 
-	//TODO Check that the task.userId is same as the id of the user from JWT
+	// Get userID from the authenticated user
+	userID := services.GetUserIdFromContext(r)
 
-	// Return the task
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(task)
+	// Check if task.userID is same as userId
+	if task.UserID != userID {
+		http.Error(w, "Permission denied", http.StatusUnauthorized)
+		return
+	}
+
+	// Return to client
+	utils.ReturnJSONToClient(w, *task)
+
 }
 
 // Update task
@@ -95,18 +103,22 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Declare task
-	var task models.Task
-
 	// Get task
-	getTaskResult := database.DB.First(&task, taskID)
+	task, err := services.GetTaskById(taskID)
 
-	if getTaskResult.Error != nil {
+	if err != nil {
 		http.Error(w, "Failed to fetch task", http.StatusInternalServerError)
 		return
 	}
 
-	//TODO Check if userId of task is same as id of user from JWT
+	// Get userID from the authenticated user
+	userID := services.GetUserIdFromContext(r)
+
+	// Check if task.userID is same as userId
+	if task.UserID != userID {
+		http.Error(w, "Permission denied", http.StatusUnauthorized)
+		return
+	}
 
 	// Decode the body
 	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
@@ -115,17 +127,15 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save task
-	updateTaskResult := database.DB.Save(&task)
+	task, err = services.UpdateTask(task)
 
-	if updateTaskResult.Error != nil {
-
-		http.Error(w, "Error while updating task", http.StatusBadRequest)
+	if err != nil {
+		http.Error(w, "Failed to update task", http.StatusInternalServerError)
 		return
 	}
 
-	// Return updated task
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(task)
+	// Return to client
+	utils.ReturnJSONToClient(w, *task)
 }
 
 // Delete task
@@ -138,10 +148,28 @@ func DeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete task
-	deleteTaskResult := database.DB.Delete(&models.Task{}, taskID)
+	// Get task
+	task, err := services.GetTaskById(taskID)
 
-	if deleteTaskResult.Error != nil {
+	// If error
+	if err != nil {
+		http.Error(w, "Failed to fetch task", http.StatusInternalServerError)
+		return
+	}
+
+	// Get userID from the authenticated user
+	userID := services.GetUserIdFromContext(r)
+
+	// If task userId not the same as the userId from the jwt => denied
+	if task.UserID != userID {
+		http.Error(w, "Permission denied", http.StatusUnauthorized)
+		return
+	}
+
+	// Delete task
+	err = services.DeleteTask(taskID)
+
+	if err != nil {
 		http.Error(w, "Error while deleting task", http.StatusBadRequest)
 		return
 	}
@@ -150,11 +178,6 @@ func DeleteTask(w http.ResponseWriter, r *http.Request) {
 	// Send a plain text response message
 	message := fmt.Sprintf("Task with ID %d has been deleted", taskID)
 
-	// Set response content type to plain text
-	w.Header().Set("Content-Type", "text/plain")
-
-	// Write the string response
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(message))
+	utils.ReturnMessageToClient(w, message, http.StatusOK)
 
 }

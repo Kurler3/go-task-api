@@ -7,6 +7,7 @@ import (
 
 	"github.com/Kurler3/go-task-api/database"
 	"github.com/Kurler3/go-task-api/models"
+	"github.com/Kurler3/go-task-api/services"
 	"github.com/Kurler3/go-task-api/utils"
 )
 
@@ -31,7 +32,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check that user doesn't already exist
-	if utils.DoesUserExistByEmail(registerBody.Email) {
+	if services.DoesUserExistByEmail(registerBody.Email) {
 		http.Error(w, "Permission denied", http.StatusForbidden)
 		return
 	}
@@ -94,7 +95,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get by email
-	user, getUserErr := utils.GetUserByEmail(loginBody.Email)
+	user, getUserErr := services.GetUserByEmail(loginBody.Email)
 
 	if getUserErr != nil {
 		fmt.Println(getUserErr.Error())

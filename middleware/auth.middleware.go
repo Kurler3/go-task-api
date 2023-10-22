@@ -2,10 +2,10 @@ package middleware
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/Kurler3/go-task-api/services"
 	"github.com/Kurler3/go-task-api/utils"
 )
 
@@ -21,26 +21,14 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 		tokenString := strings.Replace(authorizationHeader, "Bearer ", "", 1)
 
-		claims, err := utils.ValidateToken(tokenString)
+		userID, err := utils.ValidateToken(tokenString)
 		if err != nil {
 			http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
 			return
 		}
 
-		fmt.Println(claims)
-
-		// Extract user ID from claims
-		userID, ok := claims["userID"].(uint)
-
-		fmt.Println(userID, ok)
-
-		if !ok {
-			http.Error(w, "Invalid user ID in token", http.StatusUnauthorized)
-			return
-		}
-
 		// Fetch user from the database using userID
-		_, err = utils.GetUserById(userID)
+		_, err = services.GetUserById(userID)
 		if err != nil {
 			http.Error(w, "Permission Denied", http.StatusUnauthorized)
 			return

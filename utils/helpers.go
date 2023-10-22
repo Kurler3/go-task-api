@@ -1,16 +1,17 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 
+	"github.com/Kurler3/go-task-api/custom_types"
 	"github.com/Kurler3/go-task-api/models"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
-	"golang.org/Kurler3/go-task-api/custom_types"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -45,7 +46,7 @@ func ComparePasswords(hashedPassword, inputPassword string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(inputPassword))
 }
 
-var jwtSecret string
+var jwtSecret []byte
 
 // Load env
 func LoadEnv() {
@@ -56,20 +57,23 @@ func LoadEnv() {
 	}
 
 	// Get JWT secret from environment variables
-	jwtSecret = os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
+	jwtSecretFromEnv := os.Getenv("JWT_SECRET")
+	if jwtSecretFromEnv == "" {
 		fmt.Println("JWT_SECRET environment variable not set")
 		panic("JWT_SECRET environment variable not set")
 	}
+
+	jwtSecret = []byte(jwtSecretFromEnv)
+
 }
 
 // Generate JWT token
 func GenerateToken(user models.User) (string, error) {
 	claims := jwt.MapClaims{
-		"userID": user.ID,
+		"UserID": user.ID,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signedToken, err := token.SignedString([]byte(jwtSecret))
+	signedToken, err := token.SignedString(jwtSecret)
 	if err != nil {
 		return "", err
 	}
@@ -77,26 +81,38 @@ func GenerateToken(user models.User) (string, error) {
 }
 
 // Validate JWT token
-func ValidateToken(tokenString string) (jwt.MapClaims, error) {
-	// Initialize a new instance of `Claims`
-	claims := &custom_types.Claims{}
-
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
-		return []byte(jwtSecret), nil
+func ValidateToken(tokenString string) (uint, error) {
+	// Parse the JWT token
+	token, err := jwt.ParseWithClaims(tokenString, &custom_types.Claims{}, func(token *jwt.Token) (interface{}, error) {
+		return jwtSecret, nil
 	})
 
+	// Check if there was an error in parsing the token
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	if _, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		return claims, nil
+	// Check if the token is valid and not expired
+	if claims, ok := token.Claims.(*custom_types.Claims); ok && token.Valid {
+		// Check the user ID in the claims
+		return claims.UserID, nil
 	}
 
-	return nil, fmt.Errorf("Invalid token")
+	return 0, fmt.Errorf("invalid token")
 }
 
-// Get userId from context
-func GetUserIdFromContext(r *http.Request) uint {
-	return r.Context().Value("userId").(uint)
+// Return json to client
+func ReturnJSONToClient(w http.ResponseWriter, data interface{}) {
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
+}
+
+// Return simple message to client
+func ReturnMessageToClient(w http.ResponseWriter, message string, statusCode int) {
+	// Set response content type to plain text
+	w.Header().Set("Content-Type", "text/plain")
+	// Write the string response
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(message))
 }

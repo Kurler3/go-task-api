@@ -74,10 +74,13 @@ func main() {
 	// -------------------- //
 
 	// Get user by id
+	securedRouter.HandleFunc("/users", handlers.GetUserById).Methods("GET")
 
 	// Update user
+	securedRouter.HandleFunc("/users", handlers.UpdateUser).Methods("PATCH")
 
 	// Delete user
+	securedRouter.HandleFunc("/users", handlers.DeleteUser).Methods("DELETE")
 
 	// Start the server
 	port := "8081"
