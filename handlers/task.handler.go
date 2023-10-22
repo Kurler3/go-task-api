@@ -45,7 +45,6 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 // Get all tasks
 func GetTasks(w http.ResponseWriter, r *http.Request) {
 
-	// Get userID from the authenticated user (you will implement this part later with authentication)
 	// Get userID from the authenticated user
 	userID := services.GetUserIdFromContext(r)
 
