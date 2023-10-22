@@ -10,6 +10,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
+	"golang.org/Kurler3/go-task-api/custom_types"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -65,7 +66,7 @@ func LoadEnv() {
 // Generate JWT token
 func GenerateToken(user models.User) (string, error) {
 	claims := jwt.MapClaims{
-		"userId": user.ID,
+		"userID": user.ID,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signedToken, err := token.SignedString([]byte(jwtSecret))
@@ -77,17 +78,25 @@ func GenerateToken(user models.User) (string, error) {
 
 // Validate JWT token
 func ValidateToken(tokenString string) (jwt.MapClaims, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return jwtSecret, nil
+	// Initialize a new instance of `Claims`
+	claims := &custom_types.Claims{}
+
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
+		return []byte(jwtSecret), nil
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+	if _, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		return claims, nil
 	}
 
 	return nil, fmt.Errorf("Invalid token")
+}
+
+// Get userId from context
+func GetUserIdFromContext(r *http.Request) uint {
+	return r.Context().Value("userId").(uint)
 }

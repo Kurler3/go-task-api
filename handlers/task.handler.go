@@ -24,8 +24,7 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get userID from the authenticated user
-
-	userID := uint(1)
+	userID := utils.GetUserIdFromContext(r)
 
 	task.UserID = userID
 

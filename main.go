@@ -7,6 +7,7 @@ import (
 
 	"github.com/Kurler3/go-task-api/database"
 	"github.com/Kurler3/go-task-api/handlers"
+	"github.com/Kurler3/go-task-api/middleware"
 	"github.com/Kurler3/go-task-api/utils"
 	"github.com/gorilla/mux"
 )
@@ -32,25 +33,6 @@ func main() {
 	////////////////////////////////////////
 
 	// -------------------- //
-	// Task routes -------- //
-	// -------------------- //
-
-	// Create task
-	router.HandleFunc("/tasks", handlers.CreateTask).Methods("POST")
-
-	// Get all tasks (for userId from jwt)
-	router.HandleFunc("/tasks", handlers.GetTasks).Methods("GET")
-
-	// Get task by id
-	router.HandleFunc("/tasks/{id}", handlers.GetTaskById).Methods("GET")
-
-	// Update task
-	router.HandleFunc("/tasks/{id}", handlers.UpdateTask).Methods("PATCH")
-
-	// Delete task
-	router.HandleFunc("/tasks/{id}", handlers.DeleteTask).Methods("DELETE")
-
-	// -------------------- //
 	// Auth routes -------- //
 	// -------------------- //
 
@@ -59,6 +41,33 @@ func main() {
 
 	// Login
 	router.HandleFunc("/login", handlers.HandleLogin).Methods("POST")
+
+	//////////////////////////
+	// SECURE ROUTER /////////
+	//////////////////////////
+
+	// Applying AuthMiddleware to routes that require authentication
+	securedRouter := router.PathPrefix("/").Subrouter()
+	securedRouter.Use(middleware.AuthMiddleware)
+
+	// -------------------- //
+	// Task routes -------- //
+	// -------------------- //
+
+	// Create task
+	securedRouter.HandleFunc("/tasks", handlers.CreateTask).Methods("POST")
+
+	// Get all tasks (for userId from jwt)
+	securedRouter.HandleFunc("/tasks", handlers.GetTasks).Methods("GET")
+
+	// Get task by id
+	securedRouter.HandleFunc("/tasks/{id}", handlers.GetTaskById).Methods("GET")
+
+	// Update task
+	securedRouter.HandleFunc("/tasks/{id}", handlers.UpdateTask).Methods("PATCH")
+
+	// Delete task
+	securedRouter.HandleFunc("/tasks/{id}", handlers.DeleteTask).Methods("DELETE")
 
 	// -------------------- //
 	// User routes -------- //
